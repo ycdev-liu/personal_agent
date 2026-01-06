@@ -1,22 +1,41 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException,UploadFile,File
 from typing import List
+
+from torch import embedding_renorm_
 from app.api.schemas import (
     ChatRequest, ChatResponse,
     DocumentAddRequest, DocumentAddResponse,
-    MemoryAddRequest
+    MemoryAddRequest,
+    DocumentItem,
+    DocumentListResponse,
+    DocumentDeleteRequest,
+    DocumentDeleteResponse
+
+   
 )
 from app.services.rag_service import rag_service
 from app.services.memory_service import memory_service
 from app.services.llm_service import llm_service
 import logging
 
+logging.basicConfig(
+    level=logging.INFO
+
+)
+
 logger = logging.getLogger(__name__)
+
+
 
 router = APIRouter(prefix="/api/v1", tags=["智能助手"])
 
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
+    logger.info("聊天接口")
+
+
+    
     """聊天接口"""
     try:
         # 获取对话历史
@@ -24,6 +43,7 @@ async def chat(request: ChatRequest):
             request.user_id,
             limit=20
         )
+        logger.info(conversation_history)
         
         # RAG 检索
         context = []
@@ -39,6 +59,9 @@ async def chat(request: ChatRequest):
                 }
                 for r in rag_results
             ]
+
+            logger.info("rag检索向量知识库")
+            logger.info(sources)
         
         # 获取相关记忆
         memories_used = []
@@ -58,6 +81,8 @@ async def chat(request: ChatRequest):
                 for m in memories
             ]
             user_memories = memories
+            logger.info("查询记忆")
+            logger.info(memories_used)
         
         # 生成回复
         response_text = llm_service.generate_with_context(
@@ -117,6 +142,25 @@ async def add_memory(request: MemoryAddRequest):
         logger.error(f"保存记忆失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/memories/{user_id}/{memory_id}")
+async def delete_memory(user_id:str,memory_id:str):
+    try:
+        from bson.objectid import ObjectId
+        logger.info(f"删除记忆: {user_id}, {memory_id}")
+
+        result = memory_service.delete_memory(user_id,memory_id)
+        
+        if result == False:
+            raise HTTPException(status_code=404,detail="记忆不存在")
+
+        return {"success": True, "message": "记忆删除成功"}
+
+    except Exception as e:
+        logger.error(f"删除记忆失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 
 @router.get("/memories/{user_id}")
 async def get_memories(user_id: str):
@@ -127,6 +171,7 @@ async def get_memories(user_id: str):
             "success": True,
             "memories": [
                 {
+                    "id": str(m["_id"]),
                     "content": m["content"],
                     "type": m["memory_type"],
                     "importance": m["importance"],
@@ -138,6 +183,74 @@ async def get_memories(user_id: str):
     except Exception as e:
         logger.error(f"获取记忆失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.post("/documnets/upload")
+async def upload_documents(files:List[UploadFile]=File(...)):
+    try:
+        texts = []
+        metadatas = []
+        for file in files:
+            content = await file.read()
+            texts.append(content.decode("utf-8"))
+            metadatas.append({
+                "source":"file",
+                "filename":file.filename,
+                "context_type":file.content_type
+            
+            })
+
+        rag_service.add_documents(texts,metadatas)
+
+        return DocumentAddResponse(
+            success=True,
+            message="文档上传成功",
+            count=len(texts)
+        )
+    except Exception as e:
+        logger.error(f"文档上传失败{e}",exc_info=True)
+        raise HTTPException(status_code=500,detail=str(e))
+
+
+@router.get("/documents",response_model=DocumentListResponse)
+async def get_documents(limit:int =100):
+    try:
+        documents = rag_service.get_all_documents(limit)
+
+        return DocumentListResponse(
+            success= True,
+            documents=documents,
+            total= len(documents)
+        )
+    
+    except Exception as e:
+        logger.error(f"获取文档失败: {e}",exc_info=True)
+        raise HTTPException(status_code=500,detail=str(e))
+        
+
+@router.delete("/documents",response_model=DocumentDeleteResponse)
+async def delete_documents(request: DocumentDeleteRequest):
+    try:
+
+        logger.info(f"删除文档: {request.ids}")
+        id_list = [int(id_str) for id_str in request.ids]
+        logger.info(f"删除文档: {id_list}")
+        request.ids = id_list
+
+        rag_service.delete_documents(request.ids)
+
+
+        return DocumentDeleteResponse(
+            success = True,
+            message=f"成功删除{len(request.ids)}个文档",
+            deleted_count=len(request.ids)
+        )
+    
+    except Exception as e:
+        logger.error(f"删除文档失败{e}",exc_info = True)
+        raise HTTPException(status_code=500,detail=str(e))
+
 
 
 @router.get("/health")

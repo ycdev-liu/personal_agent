@@ -5,6 +5,12 @@ from typing import List, Optional, Dict
 from app.core.config import settings
 import logging
 
+
+
+logging.basicConfig(
+    level=logging.INFO
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,7 +90,9 @@ class LLMService:
     ) -> str:
         """基于上下文生成回复"""
         # 构建系统提示
+        logger.info(f"user_memories: {user_memories}")
         system_prompt = self._build_system_prompt(user_memories)
+        logger.info(f"system_prompt: {system_prompt}")
         
         # 构建上下文
         context_text = "\n\n".join([
@@ -113,12 +121,12 @@ class LLMService:
     def _build_system_prompt(self, user_memories: List[dict] = None) -> str:
         """构建系统提示"""
         base_prompt = """你是一个智能助手，能够基于提供的知识库内容和用户的历史对话记忆回答问题。
-    请遵循以下原则：
-    1. 基于知识库内容回答，不要编造信息
-    2. 如果知识库中没有相关信息，诚实告知用户
-    3. 结合用户的历史记忆，提供个性化的回答
-    4. 回答要准确、清晰、有帮助
-    5. 使用中文回答"""
+                        请遵循以下原则：
+                        1. 基于知识库内容回答，不要编造信息
+                        2. 如果知识库中没有相关信息，诚实告知用户
+                        3. 结合用户的历史记忆，提供个性化的回答
+                        4. 回答要准确、清晰、有帮助
+                        5. 使用中文回答"""
         
         # 如果有用户记忆，添加到系统提示中
         if user_memories:

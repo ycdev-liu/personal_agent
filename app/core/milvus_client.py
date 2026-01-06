@@ -6,6 +6,8 @@ from pymilvus import (
     DataType,
     utility
 )
+
+
 from typing import List, Optional
 from app.core.config import settings
 import logging
@@ -45,6 +47,8 @@ class MilvusClient:
             logger.info(f"集合 '{self.collection_name}' 已存在")
         else:
             # 创建集合
+            # 一张集合模版
+            # 一旦创建不可修改
             fields = [
                 FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
                 FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535),
@@ -56,7 +60,7 @@ class MilvusClient:
             
             # 创建索引
             index_params = {
-                "metric_type": "L2",
+                "metric_type": "COSINE",
                 "index_type": "IVF_FLAT",
                 "params": {"nlist": 1024}
             }
@@ -71,55 +75,115 @@ class MilvusClient:
         if len(texts) != len(vectors) or len(texts) != len(metadatas):
             raise ValueError("文本、向量和元数据数量必须一致")
         
-        # 准备数据，按照字段顺序
-        data = []
-        for text, vector, metadata in zip(texts, vectors, metadatas):
-            data.append({
-                text,
-                vector,
-               metadata
-            })
+        # # 准备数据，按照字段顺序
+        # data = []
+        # for text, vector, metadata in zip(texts, vectors, metadatas):
+        #     data.append({
+        #         text,
+        #         vector,
+        #        metadata
+        #     })
+
+            # Milvus 按列格式插入数据（列表的列表）
+
+        # 不需要插入id
+        data = [
+            texts,      # 所有文本的列表
+            vectors,    # 所有向量的列表（列表的列表）
+            metadatas   # 所有元数据的列表
+        ]
         
         self.collection.insert(data)
+        # 将内存中的数据写入磁盘
+        # flush() = “现在就把插入的数据真正存下来”
+        # 决定数据是否能被索引 & 稳定查询
+        # 不要每条数据都 flush，批量更好
         self.collection.flush()
         logger.info(f"已插入 {len(texts)} 条文档")
     
     def search(self, query_vector: List[float], top_k: int = 5) -> List[dict]:
         """向量相似度搜索"""
+        # search_params = {
+        #     "metric_type": "L2",
+        #     "params": {"nprobe": 10}
+        # }
+        # 余弦相似度
         search_params = {
-            "metric_type": "L2",
+            "metric_type": "COSINE",
             "params": {"nprobe": 10}
         }
+
         
         results = self.collection.search(
-            data=[query_vector],
-            anns_field="vector",
-            param=search_params,
-            limit=top_k,
-            output_fields=["text", "metadata"]
+            data=[query_vector], # 根据向量查询
+            anns_field="vector", # 向量字段
+            param=search_params, # 查询参数
+            limit=top_k, # 返回结果数量
+            output_fields=["text", "metadata"] # 返回字段 text 文本 metadata 元数据
         )
+
         
         # 格式化结果
         formatted_results = []
         for hits in results:
             for hit in hits:
+                # 每条结果是一个字典
                 formatted_results.append({
                     "id": hit.id,
-                    "text": hit.entity.get("text"),
-                    "metadata": hit.entity.get("metadata"),
-                    "distance": hit.distance,
+                    "text": hit.entity.get("text"), # 命中记录的文本
+                    "metadata": hit.entity.get("metadata"), # 命中记录的元数据
+                    "distance": hit.distance, # 默然存在       
                     "score": 1 / (1 + hit.distance)  # 转换为相似度分数
                 })
         
         return formatted_results
+
+
+        
+
+    def query_all(self,limit :int = 1000) -> List[dict]:
+        """查询所有文档"""
+
+
+        results = self.collection.query(
+            expr="id >= 0",
+            output_fields=["text", "metadata","id"],
+            limit=limit
+        )
+        formatted_results = []
+        logger.info(f"查询到 {len(results)} 条文档")
+        logger.info(f"results: {results}")
+
+        for result in results:
+            formatted_results.append({
+                "id": str(result.get("id")),
+                "text": result.get("text",""),
+                "metadata": result.get("metadata",{}),
+            })
+        logger.info(f"formatted_results: {formatted_results}")
+    
+        return formatted_results
     
     def delete(self, ids: List[int]):
         """删除文档"""
-        expr = f"id in {ids}"
+        if not ids:
+            logger.warning("没有提供要删除的文档ID")
+            return 
+
+        
+        
+        logger.info(f"删除ID: {ids}")
+        ids_str = ",".join(str(id) for id in ids)
+        expr = f"id in [{ids_str}]"
+        logger.info(f"删除表达式: {expr}")
         self.collection.delete(expr)
+        
+        # 将内存中的数据写入磁盘
         self.collection.flush()
         logger.info(f"已删除 {len(ids)} 条文档")
     
+
+
     def get_stats(self) -> dict:
         """获取集合统计信息"""
         stats = self.collection.num_entities

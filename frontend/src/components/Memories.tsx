@@ -53,6 +53,14 @@ const Memories: React.FC<MemoriesProps> = ({ userId }) => {
       alert(error.response?.data?.detail || error.message);
     }
   };
+  const handleDelete = async (memoryId:string) => {
+    if(!confirm("确定要删除这个记忆吗？")) return;
+    try{await api.deleteMemory(userId,memoryId);
+      loadMemories();
+    }catch(error:any){
+      alert(error.response?.data?.detail || error.message);
+    }
+  }
 
   return (
     <div className="memories-container">
@@ -105,6 +113,8 @@ const Memories: React.FC<MemoriesProps> = ({ userId }) => {
               取消
             </button>
           </div>
+  
+
         </form>
       )}
 
@@ -118,6 +128,9 @@ const Memories: React.FC<MemoriesProps> = ({ userId }) => {
             <div key={index} className="memory-item">
               <div className="memory-content">{memory.content}</div>
               <div className="memory-meta">
+                <button className ="delete-button" onClick={()=>handleDelete(memory.id)}>
+                  <Trash2 size={16} />
+                </button>
                 <span className="memory-type">{memory.type}</span>
                 <span className="memory-importance">
                   重要性: {(memory.importance * 100).toFixed(0)}%

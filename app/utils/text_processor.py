@@ -19,6 +19,7 @@ class TextProcessor:
         current_chunk = ""
         
         for paragraph in paragraphs:
+            
             paragraph = paragraph.strip()
             if not paragraph:
                 continue

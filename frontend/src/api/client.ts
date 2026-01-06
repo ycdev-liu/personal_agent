@@ -52,6 +52,7 @@ export interface MemoryAddRequest {
 }
 
 export interface Memory {
+  id:string;
   content: string;
   type: string;
   importance: number;
@@ -73,6 +74,37 @@ export interface HealthResponse {
   error?: string;
 }
 
+export interface DocumentItem{
+  id:string;
+  text:string;
+  metadata:Record<string,any>;
+}
+
+export interface DocumentListResponse{
+  success:boolean;
+  documents:DocumentItem[];
+  total:number;
+}
+
+export interface DocumentDeleteRequest{
+  ids:string[];
+}
+
+export interface DocumentDeleteResponse{
+  success:boolean;
+  message:string;
+  deleted_count:string;
+}
+
+
+
+
+
+
+
+
+
+
 export const api = {
   // 健康检查
   async healthCheck(): Promise<HealthResponse> {
@@ -87,11 +119,29 @@ export const api = {
     return response.data;
   },
 
+  // 文档处理
+
   // 添加文档
   async addDocuments(request: DocumentAddRequest): Promise<DocumentAddResponse> {
     const response = await apiClient.post<DocumentAddResponse>('/api/v1/documents', request);
     return response.data;
   },
+  // 获取文档列表
+  async getDocuments(limit:number = 100): Promise<DocumentListResponse> {
+    const response = await apiClient.get<DocumentListResponse>(`/api/v1/documents?limit=${limit}`);
+    return response.data;
+  },
+  
+  // 删除列表
+
+  async deleteDocuments(request:DocumentDeleteRequest):Promise<DocumentDeleteResponse>{
+    const response = await apiClient.delete<DocumentDeleteResponse>('/api/v1/documents',{data:request});
+    return response.data;
+  },
+
+
+
+  // 记忆处理
 
   // 添加记忆
   async addMemory(request: MemoryAddRequest): Promise<{ success: boolean; message: string }> {
@@ -104,7 +154,16 @@ export const api = {
     const response = await apiClient.get<MemoriesResponse>(`/api/v1/memories/${userId}`);
     return response.data;
   },
+  // 删除记忆
+  async deleteMemory(userId:string,memoryId:string):Promise<{success:boolean,message:string}>
+  {
+    const response = await apiClient.delete<{success:boolean,message:string}>(`/api/v1/memories/${userId}/${memoryId}`);
+    return response.data;
+  },
 };
+
+
+
 
 export default apiClient;
 

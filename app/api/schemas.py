@@ -19,6 +19,8 @@ class ChatResponse(BaseModel):
     conversation_id: Optional[str] = Field(None, description="对话ID")
 
 
+
+
 class DocumentAddRequest(BaseModel):
     """添加文档请求"""
     texts: List[str] = Field(..., description="文档文本列表")
@@ -39,3 +41,24 @@ class MemoryAddRequest(BaseModel):
     memory_type: str = Field(default="fact", description="记忆类型")
     importance: float = Field(default=0.5, ge=0.0, le=1.0, description="重要性")
 
+class DocumentItem(BaseModel):
+    """文档项"""
+    id: str 
+    text: str
+    metadata: dict
+
+class DocumentListResponse(BaseModel):
+    """文档列表响应"""
+    success: bool
+    documents: List[DocumentItem]
+    total: int
+
+class DocumentDeleteRequest(BaseModel):
+    """删除文档请求"""
+    ids: List[str] = Field(..., description="要删除的文档ID列表")
+
+class DocumentDeleteResponse(BaseModel):
+    """删除文档响应"""
+    success: bool
+    message: str
+    deleted_count: int

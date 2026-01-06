@@ -5,6 +5,11 @@ from app.services.embedding_service import embedding_service
 import numpy as np
 import logging
 
+
+logging.basicConfig(
+    level=logging.INFO
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,6 +18,7 @@ class MemoryService:
     
     def __init__(self):
         self.memory_collection = mongodb_client.get_collection("user_memories")
+
         self.conversation_collection = mongodb_client.get_collection("conversation_history")
     
     def save_conversation(
@@ -33,7 +39,25 @@ class MemoryService:
         
         self.conversation_collection.insert_one(conversation)
         logger.info(f"已保存用户 {user_id} 的对话记录")
-    
+
+
+    def delete_memory(self,user_id:str,memory_id:str):
+
+        from bson import ObjectId
+
+        result = self.memory_collection.delete_one({
+            "_id": ObjectId(memory_id),
+            "user_id": user_id
+        })
+
+        if result.deleted_count == 0:
+            logger.info(f"已删除用户 {user_id} 的记忆: {memory_id}")
+            return True
+        return False
+ 
+
+
+
     def get_conversation_history(
         self,
         user_id: str,
