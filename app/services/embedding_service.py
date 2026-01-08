@@ -1,5 +1,6 @@
 from sentence_transformers import SentenceTransformer
 from typing import List
+from pathlib import Path
 from app.core.config import settings
 import logging
 
@@ -12,13 +13,36 @@ class EmbeddingService:
     def __init__(self):
         self.model_name = settings.embedding_model
         self.device = settings.embedding_device
+
         self.model: SentenceTransformer = None
         self._load_model()
+
+    def _get_model_cache_path(self)->Path:
+        """获取模型缓存路径"""
+        project_root = Path(__file__).parent.parent.parent
+
+
+        if hasattr(settings,"embedding_cache_folder") and settings.embedding_cache_folder:
+            models_folder = project_root /settings.embedding_cache_folder
+        else:
+            models_folder  = project_root /"models"/"embedding"
+
+        models_folder.mkdir(parents=True,exist_ok=True)
+        logger.info(f"模型缓存路径: {models_folder}")
+        return models_folder
+
+
+
     
     def _load_model(self):
         """加载嵌入模型"""
         try:
-            self.model = SentenceTransformer(self.model_name, device=self.device)
+            self.model = SentenceTransformer(
+                self.model_name, 
+                device=self.device,
+                cache_folder=self._get_model_cache_path()
+                
+                )
             logger.info(f"已加载嵌入模型: {self.model_name}")
         except Exception as e:
             logger.error(f"加载嵌入模型失败: {e}")

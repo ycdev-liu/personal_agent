@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     
     # 嵌入模型配置
     embedding_model: str = Field(
-        default="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        default=None,
         alias="EMBEDDING_MODEL"
     )
     embedding_device: str = Field(default="cpu", alias="EMBEDDING_DEVICE")
@@ -72,6 +72,6 @@ def load_config() -> Settings:
                         os.environ[env_key] = str(value)
     
     return Settings()
-
-
+    
 settings = load_config()
+print(settings.embedding_model)

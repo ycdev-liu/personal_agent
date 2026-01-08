@@ -71,3 +71,7 @@ frontend/.vite/
 
 # uv (Python package manager)
 uv.lock
+
+
+# models
+models/

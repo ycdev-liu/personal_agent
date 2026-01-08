@@ -46,6 +46,7 @@ mongodb:
 embedding:
   model: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
   device: "cpu"  # 或 "cuda"
+  catche_folder: "models/embedding"
 
 # RAG 配置
 rag:
