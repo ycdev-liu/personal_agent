@@ -4,6 +4,7 @@ import { MessageSquare, FileText, Brain, Activity } from 'lucide-react';
 import Chat from './components/Chat';
 import Documents from './components/Documents';
 import Memories from './components/Memories';
+import UserSidebar from './components/UserSidebar';
 
 import { api } from './api/client';
 
@@ -11,14 +12,15 @@ type Tab = 'chat' | 'documents' | 'memories';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
-  const [userId] = useState(() => {
-    const stored = localStorage.getItem('userId');
-    return stored || `user_${Date.now()}`;
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
+    return localStorage.getItem('currentUserId');
+  });
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(() => {
+    return localStorage.getItem('currentConversationId');
   });
   const [health, setHealth] = useState<any>(null);
 
   useEffect(() => {
-    localStorage.setItem('userId', userId);
     checkHealth();
     const interval = setInterval(checkHealth, 30000); // 每30秒检查一次
     return () => clearInterval(interval);
@@ -30,6 +32,33 @@ const App: React.FC = () => {
       setHealth(response);
     } catch (error) {
       setHealth({ status: 'unhealthy', error: '无法连接到服务器' });
+    }
+  };
+
+  const handleUserSelect = (userId: string) => {
+    setCurrentUserId(userId);
+    setCurrentConversationId(null);
+    localStorage.setItem('currentUserId', userId);
+    localStorage.removeItem('currentConversationId');
+  };
+
+  const handleConversationSelect = async (conversationId: string, userId: string) => {
+    setCurrentConversationId(conversationId);
+    setCurrentUserId(userId);
+    localStorage.setItem('currentConversationId', conversationId);
+    localStorage.setItem('currentUserId', userId);
+  };
+
+  const handleNewConversation = async (userId: string) => {
+    try {
+      const conversation = await api.createConversation({ user_id: userId });
+      setCurrentConversationId(conversation.id);
+      setCurrentUserId(userId);
+      localStorage.setItem('currentConversationId', conversation.id);
+      localStorage.setItem('currentUserId', userId);
+    } catch (error) {
+      console.error('创建对话失败:', error);
+      alert('创建对话失败');
     }
   };
 
@@ -51,8 +80,16 @@ const App: React.FC = () => {
           </div>
         </div>
       </header>
-
+      
       <div className="app-body">
+        <UserSidebar
+          currentUserId={currentUserId}
+          currentConversationId={currentConversationId}
+          onUserSelect={handleUserSelect}
+          onConversationSelect={handleConversationSelect}
+          onNewConversation={handleNewConversation}
+        />
+        
         <nav className="sidebar">
           <button
             className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
@@ -78,12 +115,16 @@ const App: React.FC = () => {
         </nav>
 
         <main className="main-content">
-          {activeTab === 'chat' && <Chat userId={userId} />}
+          {activeTab === 'chat' && (
+            <Chat 
+              userId={currentUserId || ''} 
+              conversationId={currentConversationId || undefined}
+            />
+          )}
           {activeTab === 'documents' && <Documents />}
-          {activeTab === 'memories' && <Memories userId={userId} />}
+          {activeTab === 'memories' && <Memories userId={currentUserId || ''} />}
         </main>
       </div>
-
       <style>{` 
         .app {
           display: flex;
@@ -147,6 +188,7 @@ const App: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 4px;
+          flex-shrink: 0;
         }
 
         .nav-item {

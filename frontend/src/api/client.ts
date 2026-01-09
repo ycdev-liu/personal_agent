@@ -16,6 +16,7 @@ export interface ChatRequest {
   message: string;
   use_memory?: boolean;
   use_rag?: boolean;
+  conversation_id?: string;
 }
 
 export interface ChatResponse {
@@ -96,7 +97,32 @@ export interface DocumentDeleteResponse{
   deleted_count:string;
 }
 
+export interface Conversation {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
 
+export interface User {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  conversation_count: number;
+}
+
+export interface UserCreateRequest {
+  name: string;
+  description?: string;
+}
+
+export interface ConversationCreateRequest {
+  user_id: string;
+  title?: string;
+}
 
 
 
@@ -158,6 +184,48 @@ export const api = {
   async deleteMemory(userId:string,memoryId:string):Promise<{success:boolean,message:string}>
   {
     const response = await apiClient.delete<{success:boolean,message:string}>(`/api/v1/memories/${userId}/${memoryId}`);
+    return response.data;
+  },
+
+
+  // 用户管理
+  async createUser(request: UserCreateRequest): Promise<User> {
+    const response = await apiClient.post<User>('/api/v1/users', request);
+    return response.data;
+  },
+  
+  async getUsers(): Promise<{ success: boolean; users: User[]; total: number }> {
+    const response = await apiClient.get<{ success: boolean; users: User[]; total: number }>('/api/v1/users');
+    return response.data;
+  },
+  
+  async getUser(userId: string): Promise<User> {
+    const response = await apiClient.get<User>(`/api/v1/users/${userId}`);
+    return response.data;
+  },
+  
+  async deleteUser(userId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(`/api/v1/users/${userId}`);
+    return response.data;
+  },
+  
+  // 对话管理
+  async createConversation(request: ConversationCreateRequest): Promise<Conversation> {
+    const response = await apiClient.post<Conversation>('/api/v1/conversations', request);
+    return response.data;
+  },
+  
+  async getConversations(userId: string): Promise<{ success: boolean; conversations: Conversation[]; total: number }> {
+    const response = await apiClient.get<{ success: boolean; conversations: Conversation[]; total: number }>(
+      `/api/v1/conversations/${userId}`
+    );
+    return response.data;
+  },
+  
+  async deleteConversation(conversationId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(
+      `/api/v1/conversations/${conversationId}`
+    );
     return response.data;
   },
 };

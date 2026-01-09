@@ -14,9 +14,10 @@ interface Message {
 
 interface ChatProps {
   userId: string;
+  conversationId?: string;
 }
 
-const Chat: React.FC<ChatProps> = ({ userId }) => {
+const Chat: React.FC<ChatProps> = ({ userId, conversationId }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,6 +33,11 @@ const Chat: React.FC<ChatProps> = ({ userId }) => {
     scrollToBottom();
   }, [messages]);
 
+  // 当切换对话或用户时，清空消息列表
+  useEffect(() => {
+    setMessages([]);
+  }, [conversationId, userId]);
+
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
@@ -45,12 +51,18 @@ const Chat: React.FC<ChatProps> = ({ userId }) => {
     setInput('');
     setLoading(true);
 
+    if (!userId) {
+      alert('请先选择一个用户');
+      return;
+    }
+
     try {
       const request: ChatRequest = {
         user_id: userId,
         message: input,
         use_memory: useMemory,
         use_rag: useRag,
+        conversation_id: conversationId || undefined,
       };
 
       // 得到回答
@@ -112,7 +124,14 @@ const Chat: React.FC<ChatProps> = ({ userId }) => {
       </div>
 
       <div className="messages-container">
-        {messages.length === 0 && (
+        {!userId && (
+          <div className="empty-state">
+            <Bot size={48} />
+            <p>请先创建一个用户或选择一个现有用户</p>
+          </div>
+        )}
+        
+        {userId && messages.length === 0 && (
           <div className="empty-state">
             <Bot size={48} />
             <p>开始对话吧！我可以基于知识库和你的记忆为你提供帮助。</p>

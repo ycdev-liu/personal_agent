@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routers import chat, documents, memories, health
+from app.api.routers import chat, documents, memories, health,users
 
 # 创建主路由器
 router = APIRouter()
@@ -9,3 +9,4 @@ router.include_router(chat.router)
 router.include_router(documents.router)
 router.include_router(memories.router)
 router.include_router(health.router)
+router.include_router(users.router)
